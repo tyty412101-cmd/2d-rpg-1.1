@@ -1,27 +1,16 @@
 // ===============================
-// CORE ENGINE SETUP
+// CANVAS SETUP
 // ===============================
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 // ===============================
-// GAME CONFIG
-// ===============================
-const CONFIG = {
-    width: canvas.width,
-    height: canvas.height,
-    maxFPS: 60
-};
-
-// ===============================
-// GLOBAL GAME STATE
+// GAME STATE
 // ===============================
 const GAME = {
-    running: true,
     paused: false,
     lastTime: 0,
-    deltaTime: 0,
-    fps: 0
+    deltaTime: 0
 };
 
 // ===============================
@@ -29,29 +18,83 @@ const GAME = {
 // ===============================
 const Input = {
     keys: {},
+    mouse: { clicked: false },
 
     init() {
-        window.addEventListener("keydown", (e) => {
+        window.addEventListener("keydown", e => {
             this.keys[e.key.toLowerCase()] = true;
 
             if (e.key === "Escape") {
                 GAME.paused = !GAME.paused;
-                UI.togglePause(GAME.paused);
+                document.getElementById("pauseScreen")
+                    .classList.toggle("hidden", !GAME.paused);
             }
         });
 
-        window.addEventListener("keyup", (e) => {
+        window.addEventListener("keyup", e => {
             this.keys[e.key.toLowerCase()] = false;
+        });
+
+        window.addEventListener("mousedown", () => {
+            this.mouse.clicked = true;
+        });
+
+        window.addEventListener("mouseup", () => {
+            this.mouse.clicked = false;
         });
     },
 
-    isDown(key) {
+    down(key) {
         return this.keys[key];
     }
 };
 
 // ===============================
-// PLAYER SYSTEM
+// WORLD
+// ===============================
+const World = {
+    width: 3000,
+    height: 3000,
+    tiles: [],
+
+    generate() {
+        for (let i = 0; i < 100; i++) {
+            this.tiles.push({
+                x: Math.random() * this.width,
+                y: Math.random() * this.height,
+                size: 40
+            });
+        }
+    },
+
+    draw() {
+        ctx.fillStyle = "#222";
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        ctx.strokeStyle = "#333";
+        for (let x = 0; x < this.width; x += 50) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, this.height);
+            ctx.stroke();
+        }
+
+        for (let y = 0; y < this.height; y += 50) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(this.width, y);
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = "#555";
+        this.tiles.forEach(t => {
+            ctx.fillRect(t.x, t.y, t.size, t.size);
+        });
+    }
+};
+
+// ===============================
+// PLAYER
 // ===============================
 const Player = {
     x: 500,
@@ -68,51 +111,157 @@ const Player = {
     health: 100,
     maxHealth: 100,
 
-    update(dt) {
-        // Movement input
-        if (Input.isDown("w") || Input.isDown("arrowup")) this.velY -= this.accel;
-        if (Input.isDown("s") || Input.isDown("arrowdown")) this.velY += this.accel;
-        if (Input.isDown("a") || Input.isDown("arrowleft")) this.velX -= this.accel;
-        if (Input.isDown("d") || Input.isDown("arrowright")) this.velX += this.accel;
+    xp: 0,
+    level: 1,
 
-        // Apply friction
+    inventory: {
+        gold: 0,
+        items: []
+    },
+
+    attackCooldown: 0,
+
+    update(dt) {
+
+        // Movement
+        if (Input.down("w")) this.velY -= this.accel;
+        if (Input.down("s")) this.velY += this.accel;
+        if (Input.down("a")) this.velX -= this.accel;
+        if (Input.down("d")) this.velX += this.accel;
+
         this.velX *= this.friction;
         this.velY *= this.friction;
 
-        // Clamp speed
-        this.velX = Math.max(-this.maxSpeed, Math.min(this.maxSpeed, this.velX));
-        this.velY = Math.max(-this.maxSpeed, Math.min(this.maxSpeed, this.velY));
-
-        // Apply movement (delta time adjusted)
         this.x += this.velX * dt * 60;
         this.y += this.velY * dt * 60;
 
-        // Boundary check
-        this.x = Math.max(0, Math.min(CONFIG.width, this.x));
-        this.y = Math.max(0, Math.min(CONFIG.height, this.y));
+        this.x = Math.max(0, Math.min(World.width, this.x));
+        this.y = Math.max(0, Math.min(World.height, this.y));
+
+        // Attack cooldown
+        if (this.attackCooldown > 0) this.attackCooldown -= dt;
+
+        if (Input.mouse.clicked && this.attackCooldown <= 0) {
+            this.attack();
+            this.attackCooldown = 0.3;
+        }
+    },
+
+    attack() {
+        enemies.forEach(e => {
+            const dist = Math.hypot(e.x - this.x, e.y - this.y);
+            if (dist < 60) {
+                e.health -= 25;
+            }
+        });
+    },
+
+    gainXP(amount) {
+        this.xp += amount;
+
+        if (this.xp >= this.level * 50) {
+            this.xp = 0;
+            this.level++;
+            this.maxHealth += 10;
+            this.health = this.maxHealth;
+        }
     },
 
     draw() {
         ctx.fillStyle = "lime";
-        ctx.fillRect(
-            this.x - this.size / 2,
-            this.y - this.size / 2,
-            this.size,
-            this.size
-        );
+        ctx.fillRect(this.x - 10, this.y - 10, 20, 20);
     }
 };
 
 // ===============================
-// CAMERA SYSTEM (FOLLOW PLAYER)
+// ENEMIES
+// ===============================
+const enemies = [];
+
+function spawnEnemy() {
+    enemies.push({
+        x: Math.random() * World.width,
+        y: Math.random() * World.height,
+        size: 18,
+        speed: 1 + Math.random(),
+        health: 50,
+        damage: 10,
+        attackCooldown: 0
+    });
+}
+
+for (let i = 0; i < 10; i++) spawnEnemy();
+
+// ===============================
+// ITEMS
+// ===============================
+const items = [];
+
+function dropLoot(x, y) {
+    items.push({
+        x,
+        y,
+        type: Math.random() < 0.5 ? "health" : "gold",
+        value: 20
+    });
+}
+
+// ===============================
+// UPDATE SYSTEMS
+// ===============================
+function updateEnemies(dt) {
+    enemies.forEach((e, i) => {
+
+        const dx = Player.x - e.x;
+        const dy = Player.y - e.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 5) {
+            e.x += (dx / dist) * e.speed;
+            e.y += (dy / dist) * e.speed;
+        }
+
+        if (dist < 25 && e.attackCooldown <= 0) {
+            Player.health -= e.damage;
+            e.attackCooldown = 1;
+        }
+
+        if (e.attackCooldown > 0) e.attackCooldown -= dt;
+
+        if (e.health <= 0) {
+            dropLoot(e.x, e.y);
+            Player.gainXP(20);
+            enemies.splice(i, 1);
+            spawnEnemy();
+        }
+    });
+}
+
+function updateItems() {
+    items.forEach((item, i) => {
+        const dist = Math.hypot(Player.x - item.x, Player.y - item.y);
+
+        if (dist < 25) {
+            if (item.type === "health") {
+                Player.health = Math.min(Player.maxHealth, Player.health + item.value);
+            } else {
+                Player.inventory.gold += item.value;
+            }
+            items.splice(i, 1);
+        }
+    });
+}
+
+// ===============================
+// CAMERA
 // ===============================
 const Camera = {
     x: 0,
     y: 0,
 
     update() {
-        this.x = Player.x - CONFIG.width / 2;
-        this.y = Player.y - CONFIG.height / 2;
+        this.x = Player.x - canvas.width / 2;
+        this.y = Player.y - canvas.height / 2;
     },
 
     apply() {
@@ -125,89 +274,41 @@ const Camera = {
 };
 
 // ===============================
-// WORLD SYSTEM
+// DRAW
 // ===============================
-const World = {
-    width: 2000,
-    height: 2000,
-
-    draw() {
-        ctx.fillStyle = "#222";
-        ctx.fillRect(0, 0, this.width, this.height);
-
-        // Grid
-        ctx.strokeStyle = "#333";
-        for (let x = 0; x < this.width; x += 50) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, this.height);
-            ctx.stroke();
-        }
-
-        for (let y = 0; y < this.height; y += 50) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(this.width, y);
-            ctx.stroke();
-        }
-    }
-};
-
-// ===============================
-// UI SYSTEM
-// ===============================
-const UI = {
-    healthBar: document.getElementById("healthFill"),
-    fpsText: document.getElementById("fps"),
-    posText: document.getElementById("pos"),
-    pauseScreen: document.getElementById("pauseScreen"),
-
-    update() {
-        this.healthBar.style.width =
-            (Player.health / Player.maxHealth) * 100 + "%";
-
-        this.posText.textContent =
-            Math.round(Player.x) + ", " + Math.round(Player.y);
-
-        this.fpsText.textContent = GAME.fps;
-    },
-
-    togglePause(state) {
-        if (state) {
-            this.pauseScreen.classList.remove("hidden");
-        } else {
-            this.pauseScreen.classList.add("hidden");
-        }
-    }
-};
-
-// ===============================
-// DEBUG SYSTEM
-// ===============================
-const Debug = {
-    enabled: true,
-
-    draw() {
-        if (!this.enabled) return;
-
+function drawEnemies() {
+    enemies.forEach(e => {
         ctx.fillStyle = "red";
-        ctx.fillRect(Player.x - 2, Player.y - 2, 4, 4);
-    }
-};
+        ctx.fillRect(e.x - 9, e.y - 9, 18, 18);
+    });
+}
+
+function drawItems() {
+    items.forEach(i => {
+        ctx.fillStyle = i.type === "health" ? "yellow" : "gold";
+        ctx.beginPath();
+        ctx.arc(i.x, i.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
 
 // ===============================
-// GAME LOOP
+// UI
 // ===============================
-function gameLoop(timestamp) {
+function updateUI() {
+    document.getElementById("healthFill").style.width =
+        (Player.health / Player.maxHealth) * 100 + "%";
 
-    if (!GAME.running) return;
+    document.getElementById("inventory").textContent =
+        `🎒 Gold: ${Player.inventory.gold} | Level: ${Player.level}`;
+}
 
-    // Delta time
-    GAME.deltaTime = (timestamp - GAME.lastTime) / 1000;
-    GAME.lastTime = timestamp;
-
-    // FPS
-    GAME.fps = Math.round(1 / GAME.deltaTime);
+// ===============================
+// LOOP
+// ===============================
+function gameLoop(time) {
+    GAME.deltaTime = (time - GAME.lastTime) / 1000;
+    GAME.lastTime = time;
 
     if (!GAME.paused) {
         update(GAME.deltaTime);
@@ -217,36 +318,28 @@ function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
 }
 
-// ===============================
-// UPDATE
-// ===============================
 function update(dt) {
     Player.update(dt);
+    updateEnemies(dt);
+    updateItems();
     Camera.update();
-    UI.update();
+    updateUI();
 }
 
-// ===============================
-// RENDER
-// ===============================
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     Camera.apply();
-
     World.draw();
+    drawItems();
     Player.draw();
-    Debug.draw();
-
+    drawEnemies();
     Camera.reset();
 }
 
 // ===============================
-// INITIALIZE
+// START
 // ===============================
-function init() {
-    Input.init();
-    requestAnimationFrame(gameLoop);
-}
-
-init();
+Input.init();
+World.generate();
+requestAnimationFrame(gameLoop);
