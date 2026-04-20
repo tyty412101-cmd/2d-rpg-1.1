@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Top-Down RPG Engine</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+/* ================= RESET ================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ================= BODY ================= */
+body {
+    background: radial-gradient(circle at center, #1a1a1a, #000);
+    color: white;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+
+/* ================= APP LAYOUT ================= */
+#app {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* ================= GAME WRAPPER ================= */
+#gameWrapper {
+    position: relative;
+}
+
+/* ================= CANVAS ================= */
+canvas {
+    background: #000;
+    border: 4px solid #fff;
+    image-rendering: pixelated;
+}
+
+/* ================= HUD ================= */
+#hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+/* ================= UI BOX ================= */
+.box {
+    background: rgba(0,0,0,0.75);
+    padding: 10px 15px;
+    border: 2px solid #fff;
+    border-radius: 8px;
+    min-width: 150px;
+}
+
+/* ================= HEALTH ================= */
+#healthBar {
+    width: 180px;
+    height: 18px;
+    background: #400;
+    border: 2px solid #fff;
+    margin-top: 5px;
+}
+
+#healthFill {
+    width: 100%;
+    height: 100%;
+    background: lime;
+    transition: width 0.2s;
+}
+
+/* ================= XP ================= */
+#xpBar {
+    width: 180px;
+    height: 10px;
+    background: #222;
+    border: 2px solid #fff;
+    margin-top: 5px;
+}
+
+#xpFill {
+    width: 0%;
+    height: 100%;
+    background: cyan;
+}
+
+/* ================= INVENTORY ================= */
+#inventoryGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 40px);
+    gap: 5px;
+    margin-top: 5px;
+}
+
+.slot {
+    width: 40px;
+    height: 40px;
+    border: 2px solid white;
+    background: #111;
+}
+
+/* ================= MINIMAP ================= */
+#minimap {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 120px;
+    height: 120px;
+    border: 2px solid white;
+    background: #000;
+}
+
+/* ================= DEBUG PANEL ================= */
+#debug {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+/* ================= START SCREEN ================= */
+#startScreen,
+#pauseScreen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    z-index: 10;
+}
+
+/* ================= HIDDEN ================= */
+.hidden {
+    display: none;
+}
+
+/* ================= BUTTON ================= */
+button {
+    padding: 12px 25px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    background: white;
+}
+
+button:hover {
+    background: #ddd;
+}
+
+/* ================= TITLE ================= */
+h1 {
+    font-size: 32px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="app">
+<div id="gameWrapper">
+
+<!-- ================= GAME ================= -->
+<canvas id="gameCanvas" width="1000" height="600"></canvas>
+
+<!-- ================= HUD ================= -->
+<div id="hud">
+
+    <!-- HEALTH -->
+    <div class="box">
+        ❤️ Health
+        <div id="healthBar">
+            <div id="healthFill"></div>
+        </div>
+    </div>
+
+    <!-- XP -->
+    <div class="box">
+        ⭐ Level: <span id="level">1</span>
+        <div id="xpBar">
+            <div id="xpFill"></div>
+        </div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div class="box">
+        🎒 Inventory
+        <div id="inventoryGrid">
+            <div class="slot"></div>
+            <div class="slot"></div>
+            <div class="slot"></div>
+            <div class="slot"></div>
+            <div class="slot"></div>
+            <div class="slot"></div>
+            <div class="slot"></div>
+            <div class="slot"></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ================= MINIMAP ================= -->
+<canvas id="minimap"></canvas>
+
+<!-- ================= DEBUG ================= -->
+<div id="debug">
+    FPS: <span id="fps">0</span><br>
+    Position: <span id="pos">0,0</span>
+</div>
+
+<!-- ================= START SCREEN ================= -->
+<div id="startScreen">
+    <h1>⚔️ RPG Engine</h1>
+    <p>Explore • Fight • Level Up</p>
+    <button onclick="startGame()">Start Game</button>
+</div>
+
+<!-- ================= PAUSE SCREEN ================= -->
+<div id="pauseScreen" class="hidden">
+    <h1>Paused</h1>
+    <button onclick="resumeGame()">Resume</button>
+</div>
+
+</div>
+</div>
+
+<!-- ================= GAME SCRIPT ================= -->
+<script src="game.js"></script>
+
+<!-- ================= BASIC UI LOGIC ================= -->
+<script>
+function startGame() {
+    document.getElementById("startScreen").classList.add("hidden");
+}
+
+function resumeGame() {
+    document.getElementById("pauseScreen").classList.add("hidden");
+}
+</script>
+
+</body>
+</html>
